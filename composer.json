@@ -1,0 +1,28 @@
+{
+    "name": "httpidempotency/monorepo",
+    "description": "Development monorepo for the HTTP idempotency PHP packages.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.2"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.18",
+        "symplify/monorepo-builder": "^11.2"
+    },
+    "scripts": {
+        "lint": "pint --test",
+        "fix": "pint",
+        "test:core": "@php -d xdebug.mode=off packages/core/vendor/bin/phpunit -c packages/core/phpunit.xml",
+        "test:laravel": "@php -d xdebug.mode=off packages/laravel/vendor/bin/phpunit -c packages/laravel/phpunit.xml",
+        "stan:core": "packages/core/vendor/bin/phpstan analyse -c packages/core/phpstan.neon",
+        "stan:laravel": "packages/laravel/vendor/bin/phpstan analyse -c packages/laravel/phpstan.neon",
+        "mono:validate": "monorepo-builder validate",
+        "mono:bump": "monorepo-builder bump-interdependency"
+    },
+    "config": {
+        "allow-plugins": {
+            "phpbench/phpbench": true
+        }
+    }
+}

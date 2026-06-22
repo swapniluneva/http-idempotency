@@ -1,0 +1,65 @@
+# Splits this monorepo into read-only, per-package repositories that Packagist
+# installs from. Each push to main mirrors the package subtree; each tag (e.g.
+# v0.1.0) is propagated so Packagist publishes a matching release.
+#
+# Prerequisites (one-time):
+#   1. Create the two target GitHub repositories (empty) — see the matrix below.
+#   2. Create a Personal Access Token with `repo` scope and add it as the
+#      `ACCESS_TOKEN` secret on THIS repository.
+#   3. Submit each split repo to Packagist (it reads the package name from the
+#      split repo's composer.json: httpidempotency/core and httpidempotency/laravel).
+#
+# Adjust `repository_organization` / `repository_name` to your real targets.
+name: Split packages
+
+on:
+  push:
+    branches: [main]
+    tags: ['*']
+
+permissions:
+  contents: read
+
+jobs:
+  split:
+    name: split ${{ matrix.package.local }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - local: core
+            organization: swapniluneva
+            repository: idempotency-core
+          - local: laravel
+            organization: swapniluneva
+            repository: laravel-idempotency
+    steps:
+      - uses: actions/checkout@v4
+
+      # Mirror the current branch state (no tag) on every push to main.
+      - name: Split (branch)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        uses: symplify/monorepo-split-github-action@v2.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        with:
+          package_directory: 'packages/${{ matrix.package.local }}'
+          repository_organization: '${{ matrix.package.organization }}'
+          repository_name: '${{ matrix.package.repository }}'
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+
+      # Propagate the tag so each split repo gets the same release for Packagist.
+      - name: Split (tag)
+        if: "startsWith(github.ref, 'refs/tags/')"
+        uses: symplify/monorepo-split-github-action@v2.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        with:
+          tag: ${{ github.ref_name }}
+          package_directory: 'packages/${{ matrix.package.local }}'
+          repository_organization: '${{ matrix.package.organization }}'
+          repository_name: '${{ matrix.package.repository }}'
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'

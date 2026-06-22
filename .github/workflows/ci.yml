@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  core:
+    name: core (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+    defaults:
+      run:
+        working-directory: packages/core
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHPStan (max)
+        run: composer phpstan
+
+      - name: Tests
+        run: composer test
+
+  laravel:
+    name: laravel (PHP ${{ matrix.php }}, Laravel ${{ matrix.laravel }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+        laravel: ['^11.0', '^12.0']
+    services:
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s --health-timeout=5s --health-retries=5
+    defaults:
+      run:
+        working-directory: packages/laravel
+    env:
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: redis, pdo_sqlite, pcntl
+          coverage: none
+          tools: composer:v2
+
+      - name: Pin Laravel version
+        run: >-
+          composer require --no-update
+          "illuminate/support:${{ matrix.laravel }}"
+          "illuminate/http:${{ matrix.laravel }}"
+          "illuminate/database:${{ matrix.laravel }}"
+          "illuminate/console:${{ matrix.laravel }}"
+          "illuminate/contracts:${{ matrix.laravel }}"
+
+      - name: Install dependencies
+        run: composer update --no-interaction --prefer-dist --no-progress
+
+      - name: PHPStan
+        run: composer phpstan
+
+      - name: Tests
+        run: composer test
+
+  style:
+    name: code style
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Pint
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Check formatting
+        run: composer lint
